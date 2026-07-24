@@ -1,0 +1,66 @@
+name: doubao_nomark
+description: "无印字节 - 移动端无水印下载图片与视频"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: 1.0.8
+
+  # 网络
+  dio: 5.7.0
+
+  # 状态管理
+  flutter_riverpod: 2.6.1
+
+  # 保存图片/视频到系统相册（Android/iOS）
+  gal: 2.3.2
+
+  # 本地持久化（设置 + 解析历史）
+  shared_preferences: 2.3.2
+
+  # 标准平台缓存目录；OHOS 由原生平台通道提供
+  path_provider: 2.1.4
+
+  # 渲染 inline SVG 图标（粘贴/删除/取消）
+  flutter_svg: 2.0.10+1
+
+  # 解析结果视频预览（Android/iOS/macOS/Web）
+  video_player: 2.9.2
+
+  # Markdown 渲染（开源与条款页面）
+  flutter_markdown: 0.7.3+1
+
+  # 打开外部链接（浏览器）
+  url_launcher: 6.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: 3.0.2
+
+# 该版本同时满足 Dart 3.4/Flutter 3.22，且不再引用已移除的 Android v1 embedding。
+dependency_overrides:
+  path_provider_android: 2.2.10
+  video_player_android: 2.7.1
+  video_player_avfoundation: 2.6.1
+  video_player_platform_interface: 6.2.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - flutter.svg
+    - doubao_nomark.svg
+    - app_icon.png
+    - TERMS_OF_USE.md
+    - PRIVACY_POLICY.md
+    - THIRD_PARTY_LICENSES.md
+    - LICENSE

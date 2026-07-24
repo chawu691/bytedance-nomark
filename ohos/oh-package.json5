@@ -1,0 +1,18 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "bytedance_nomark",
+  "version": "1.0.0",
+  "description": "无印字节 HarmonyOS NEXT runner",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/flutter_ohos": "file:./har/flutter.har"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.6"
+  },
+  "overrides": {
+    "@ohos/flutter_ohos": "file:./har/flutter.har"
+  }
+}

@@ -1,0 +1,53 @@
+<svg width="1254" height="1254" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient y2="1" x2="1" y1="0" x1="0" id="bgGrad">
+   <stop stop-color="#fafafa" offset="0%"/>
+   <stop stop-color="#f3f3f6" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="0.10646" x2="1.11286" y1="0.87358" x1="0.29506" id="arcGrad1">
+   <stop stop-color="#4A56FF" offset="0%"/>
+   <stop stop-color="#1F8EFF" offset="40%"/>
+   <stop stop-color="#19E0D6" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="1" x2="1" y1="0" x1="0" id="vGradL">
+   <stop stop-color="#4A58FF" offset="0%"/>
+   <stop stop-color="#7A49FF" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="1" x2="1" y1="-0.01316" x1="0" id="trayGrad">
+   <stop stop-color="#4436D8" offset="0%"/>
+   <stop stop-color="#4F3DDF" offset="55%"/>
+   <stop stop-color="#3627B8" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="0.99527" x2="1" y1="-0.01838" x1="0" id="leftBarGrad">
+   <stop stop-color="#0A44F6" offset="0%"/>
+   <stop stop-color="#1D7DFF" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="0.99328" x2="1" y1="0.0802" x1="0" id="midBarGrad">
+   <stop stop-color="#1AB0FF" offset="0%"/>
+   <stop stop-color="#1A86FF" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="0.99641" x2="1" y1="-0.00574" x1="0" id="rightBarGrad">
+   <stop stop-color="#17E7D3" offset="0%"/>
+   <stop stop-color="#1CCAD9" offset="100%"/>
+  </linearGradient>
+  <linearGradient y2="0.95094" x2="0.90526" y1="0.04906" x1="0.10471" id="arrowGrad">
+   <stop stop-color="#4A7DFF" offset="0%"/>
+   <stop stop-color="#7146FF" offset="100%"/>
+  </linearGradient>
+ </defs>
+ <g>
+  <title>Layer 1</title>
+  <path id="svg_1" fill="url(#bgGrad)" d="m228,48l798,0a190,190 0 0 1 190,190l0,798a190,190 0 0 1 -190,190l-798,0a190,190 0 0 1 -190,-190l0,-798a190,190 0 0 1 190,-190z"/>
+  <path id="svg_4" stroke-linejoin="round" stroke-linecap="round" stroke-width="93" stroke="url(#vGradL)" fill="none" d="m397.33333,857.53133l220,184"/>
+  <path transform="rotate(96.069 787 938.96)" id="svg_24" stroke-linejoin="round" stroke-linecap="round" stroke-width="93" stroke="url(#vGradL)" fill="none" d="m680.05707,843.04318l213.8859,191.83339"/>
+  <path fill="none" stroke="url(#arcGrad1)" stroke-width="93" opacity="undefined" d="m635.88898,936.75359c-220.99448,0 -400.00001,-179.00553 -400.00001,-400.00001c0,-220.99448 179.00553,-400.00001 400.00001,-400.00001c220.99448,0 400.00001,179.00553 400.00001,400.00001c0,220.99448 -179.00553,400.00001 -400.00001,400.00001z" id="svg_13"/>
+  <path id="svg_6" fill="url(#leftBarGrad)" d="m407.33333,345.08688q0,-16 14,-10l71,32q20,8 20,27l0,234q0,19 -18,25l-71,25q-16,6 -16,-10l0,-323z"/>
+  <path id="svg_7" fill="url(#midBarGrad)" d="m589.77778,463.75355q0,-11 10,-16l81,-37q27,-12 27,17l0,143q0,13 -12,16l-86,25q-20,6 -20,-14l0,-134z"/>
+  <path id="svg_8" fill="url(#rightBarGrad)" d="m771.55556,336.42021q0,-12 11,-8l67,31q28,13 28,41l0,217q0,24 -22,32l-69,25q-15,5 -15,-10l0,-328z"/>
+  <path id="svg_9" stroke-linejoin="round" stroke-linecap="round" stroke-width="76" stroke="url(#trayGrad)" fill="none" d="m337.33333,979.05026l0,76l608,0l0,-76"/>
+  <path id="svg_30" d="m517.01405,894.47883" opacity="NaN" stroke="url(#arcGrad1)" fill="#ffffff"/>
+  <path id="svg_33" d="m644.83095,1004.11656c0,0 -202.56337,-159.19718 -243.67603,-204.30983c62.11266,-98.88734 461.28166,8.53519 461.169,8.42254" opacity="NaN" stroke="null" fill="url(#bgGrad)"/>
+  <path id="svg_10" fill="url(#arrowGrad)" d="m612.28571,695.19799q-24,0 0,0l71,0q24,0 24,25l0,72l49,0q20,0 29,15q9,15 -5,29l-110,111q-13,13 -32,13q-19,0 -32,-13l-110,-111q-14,-14 -5,-29q9,-15 29,-15l49,0l0,-72q0,-25 19,-25l24,0z"/>
+  <path id="svg_34" d="m591.21857,719.55865" opacity="NaN" stroke-width="93" stroke="url(#arcGrad1)" fill="none"/>
+ </g>
+</svg>
