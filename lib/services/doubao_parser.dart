@@ -1,8 +1,11 @@
 // 豆包无水印图片解析
 // 对接豆包新 API：POST /alice/message/share/get
+// 同时作为统一解析入口：路由豆包/千问/抖音/TikTok 链接到对应解析器
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+
+import 'douyin_tiktok_parser.dart';
 
 /// 解析出的图片信息
 class ParsedImage {
@@ -72,11 +75,22 @@ const _qianwenHeaders = {
 };
 
 /// 统一解析入口：同时提取图片和视频
-/// 自动检测豆包/千问链接并路由到对应解析器
-/// 输入：豆包 thread 链接 或 千问 share/chat 链接
+/// 自动检测豆包/千问/抖音/TikTok 链接并路由到对应解析器
+/// 输入：豆包 thread 链接 / 千问 share/chat 链接 / 抖音视频/笔记 / TikTok 视频/图文
 /// 输出：(images, videos)
 Future<({List<ParsedImage> images, List<ParsedVideo> videos})> parseMedia(
-    String url) async {
+    String url, {
+      String douyinCookie = '',
+      String tiktokCookie = '',
+    }) async {
+  // 抖音链接
+  if (isDouyinUrl(url)) {
+    return parseDouyinMedia(url, cookie: douyinCookie);
+  }
+  // TikTok 链接
+  if (isTiktokUrl(url)) {
+    return parseTiktokMedia(url, cookie: tiktokCookie);
+  }
   // 千问链接
   if (url.contains('qianwen.com')) {
     return _parseQianwenMedia(url);
@@ -143,8 +157,11 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})> parseMedia(
 }
 
 /// 图片解析（向后兼容）
-Future<List<ParsedImage>> parseImages(String url) async {
-  return (await parseMedia(url)).images;
+Future<List<ParsedImage>> parseImages(String url,
+    {String douyinCookie = '', String tiktokCookie = ''}) async {
+  return (await parseMedia(url,
+          douyinCookie: douyinCookie, tiktokCookie: tiktokCookie))
+      .images;
 }
 
 /// 调用 alice API

@@ -4,6 +4,11 @@ const appPrimary = Color(0xFFFF6A3D);
 const appDarkBackground = Color(0xFF1E1E1E);
 const appDarkForeground = Color(0xFFD4D4D4);
 
+// 抖音主题色：青 -> 红 渐变
+const douyinCyan = Color(0xFF25F4EE);
+const douyinRed = Color(0xFFFE2C55);
+const appDouyinPrimary = Color(0xFFFE2C55); // 单色（用于控件选中态）
+
 @immutable
 class AppPalette extends ThemeExtension<AppPalette> {
   final Color background;
@@ -81,25 +86,32 @@ extension AppThemeContext on BuildContext {
             ? AppPalette.dark
             : AppPalette.light);
   }
+
+  /// 当前主题的主色（随模式切换：豆包橙 / 抖音红）
+  Color get primary {
+    final theme = Theme.of(this);
+    return theme.colorScheme.primary;
+  }
 }
 
-ThemeData buildAppTheme(Brightness brightness) {
+ThemeData buildAppTheme(Brightness brightness, {String mode = 'doubao'}) {
   final dark = brightness == Brightness.dark;
   final palette = dark ? AppPalette.dark : AppPalette.light;
+  final primary = mode == 'douyin' ? appDouyinPrimary : appPrimary;
   final scheme = dark
-      ? const ColorScheme.dark(
-          primary: appPrimary,
+      ? ColorScheme.dark(
+          primary: primary,
           onPrimary: Colors.white,
           surface: appDarkBackground,
           onSurface: appDarkForeground,
-          outline: Color(0xFF3E3E42),
+          outline: const Color(0xFF3E3E42),
         )
-      : const ColorScheme.light(
-          primary: appPrimary,
+      : ColorScheme.light(
+          primary: primary,
           onPrimary: Colors.white,
-          surface: Color(0xFFFFFFFF),
-          onSurface: Color(0xFF1A1A1A),
-          outline: Color(0xFFEBEBEB),
+          surface: const Color(0xFFFFFFFF),
+          onSurface: const Color(0xFF1A1A1A),
+          outline: const Color(0xFFEBEBEB),
         );
 
   return ThemeData(
@@ -121,7 +133,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: palette.card,
-      selectedItemColor: appPrimary,
+      selectedItemColor: primary,
       unselectedItemColor: palette.mutedForeground,
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -139,12 +151,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: appPrimary, width: 1.5),
+        borderSide: BorderSide(color: primary, width: 1.5),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: appPrimary,
+        backgroundColor: primary,
         foregroundColor: Colors.white,
         minimumSize: const Size.fromHeight(52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -153,3 +165,10 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
   );
 }
+
+/// 抖音模式专属的青红渐变（用于主按钮、模式切换器选中态、解析按钮等）
+const douyinGradient = LinearGradient(
+  colors: [douyinCyan, douyinRed],
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+);

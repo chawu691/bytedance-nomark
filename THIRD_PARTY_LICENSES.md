@@ -28,6 +28,21 @@
 | cupertino_icons | 1.0.8 | iOS 风格图标 | MIT | Flutter Authors | https://pub.dev/packages/cupertino_icons |
 | flutter_markdown | 0.7.3+1 | Markdown 渲染 | BSD-3-Clause | Flutter Authors | https://pub.dev/packages/flutter_markdown |
 | url_launcher | 6.3.0 | 打开外部链接 | BSD-3-Clause | Flutter Authors | https://pub.dev/packages/url_launcher |
+| pointycastle | 3.9.1 | SM3/MD5/SHA256 哈希（抖音 a_bogus 与 TikTok XBogus 签名） | MIT | Adi Nistor & Contributors | https://pub.dev/packages/pointycastle |
+
+---
+
+## 算法移植声明
+
+本应用在 `lib/services/abogus.dart` 与 `lib/services/xbogus.dart` 中实现了抖音 Web API 的 `a_bogus` 签名与 TikTok Web API 的 `X-Bogus` 签名。
+
+上述两份算法的原始实现来自开源项目 **[Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API)**（作者：Evil0ctal），依照 **Apache License 2.0** 授权。本应用在遵循该许可证的前提下，将其中的 Python 实现移植为 Dart 版本，并保持算法行为一致。
+
+- 原始版权所有者：Copyright (C) 2021 Evil0ctal
+- 原始许可证：Apache-2.0
+- 修改说明：将 Python 中的 RC4、SM3、MD5 等调用替换为 `pointycastle` 提供的等价实现；接口签名调整为适应 Flutter 异步网络栈。
+
+完整 Apache-2.0 许可证文本见 https://www.apache.org/licenses/LICENSE-2.0。
 
 ---
 

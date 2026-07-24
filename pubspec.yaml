@@ -32,6 +32,9 @@ dependencies:
   # 渲染 inline SVG 图标（粘贴/删除/取消）
   flutter_svg: 2.0.10+1
 
+  # SM3/MD5/SHA256 哈希（抖音 a_bogus 与 TikTok XBogus 签名）
+  pointycastle: 3.9.1
+
   # 解析结果视频预览（Android/iOS/macOS/Web）
   video_player: 2.9.2
 
@@ -57,9 +60,11 @@ flutter:
   uses-material-design: true
 
   assets:
-    - flutter.svg
-    - doubao_nomark.svg
-    - app_icon.png
+    - logo/flutter.svg
+    - logo/doubao_nomark.svg
+    - logo/app_icon.png
+    - logo/bytedance-nomark.svg
+    - logo/Douyin_TikTok_Download_API.png
     - TERMS_OF_USE.md
     - PRIVACY_POLICY.md
     - THIRD_PARTY_LICENSES.md

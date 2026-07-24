@@ -60,7 +60,9 @@ class ParseState {
 }
 
 class ParseNotifier extends StateNotifier<ParseState> {
-  ParseNotifier() : super(const ParseState());
+  ParseNotifier(this._settings) : super(const ParseState());
+
+  final SettingsNotifier _settings;
 
   Future<void> parse(String url) async {
     url = url.trim();
@@ -70,7 +72,12 @@ class ParseNotifier extends StateNotifier<ParseState> {
     }
     state = const ParseState(isLoading: true);
     try {
-      final result = await parseMedia(url);
+      final settings = _settings.current;
+      final result = await parseMedia(
+        url,
+        douyinCookie: settings.douyinCookie,
+        tiktokCookie: settings.tiktokCookie,
+      );
       final images = result.images;
       final videos = result.videos;
       if (images.isEmpty && videos.isEmpty) {
@@ -148,7 +155,7 @@ class ParseNotifier extends StateNotifier<ParseState> {
 }
 
 final parseProvider = StateNotifierProvider<ParseNotifier, ParseState>((ref) {
-  return ParseNotifier();
+  return ParseNotifier(ref.watch(settingsProvider.notifier));
 });
 
 // ───────────────────────── 下载 ─────────────────────────
@@ -469,22 +476,30 @@ class SettingsState {
   final String defaultMode; // 'doubao' | 'douyin'
   final bool autoParse;
   final bool darkMode;
+  final String douyinCookie; // 抖音 Web Cookie（用户在设置页填入）
+  final String tiktokCookie; // TikTok Web Cookie（用户在设置页填入）
 
   const SettingsState({
     this.defaultMode = 'doubao',
     this.autoParse = true,
     this.darkMode = false,
+    this.douyinCookie = '',
+    this.tiktokCookie = '',
   });
 
   SettingsState copyWith({
     String? defaultMode,
     bool? autoParse,
     bool? darkMode,
+    String? douyinCookie,
+    String? tiktokCookie,
   }) {
     return SettingsState(
       defaultMode: defaultMode ?? this.defaultMode,
       autoParse: autoParse ?? this.autoParse,
       darkMode: darkMode ?? this.darkMode,
+      douyinCookie: douyinCookie ?? this.douyinCookie,
+      tiktokCookie: tiktokCookie ?? this.tiktokCookie,
     );
   }
 }
@@ -506,12 +521,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const _kMode = 'settings_defaultMode';
   static const _kAutoParse = 'settings_autoParse';
   static const _kDarkMode = 'settings_darkMode';
+  static const _kDouyinCookie = 'settings_douyinCookie';
+  static const _kTiktokCookie = 'settings_tiktokCookie';
 
   void _load() {
     state = SettingsState(
       defaultMode: _prefs.getString(_kMode) ?? 'doubao',
       autoParse: _prefs.getBool(_kAutoParse) ?? true,
       darkMode: _prefs.getBool(_kDarkMode) ?? false,
+      douyinCookie: _prefs.getString(_kDouyinCookie) ?? '',
+      tiktokCookie: _prefs.getString(_kTiktokCookie) ?? '',
     );
   }
 
@@ -528,6 +547,18 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setDarkMode(bool value) {
     _prefs.setBool(_kDarkMode, value);
     state = state.copyWith(darkMode: value);
+  }
+
+  void setDouyinCookie(String value) {
+    final trimmed = value.trim();
+    _prefs.setString(_kDouyinCookie, trimmed);
+    state = state.copyWith(douyinCookie: trimmed);
+  }
+
+  void setTiktokCookie(String value) {
+    final trimmed = value.trim();
+    _prefs.setString(_kTiktokCookie, trimmed);
+    state = state.copyWith(tiktokCookie: trimmed);
   }
 
   /// 只清空临时缓存目录，设置和解析历史均保留。

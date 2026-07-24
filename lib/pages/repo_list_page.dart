@@ -32,16 +32,23 @@ class RepoListPage extends StatelessWidget {
           _sectionHeader(context, '核心开源项目'),
           _repoRow(
             context,
-            asset: 'flutter.svg',
+            asset: 'logo/flutter.svg',
             name: 'Flutter',
             url: 'https://github.com/flutter/flutter',
           ),
           _divider(context),
           _repoRow(
             context,
-            asset: 'doubao_nomark.svg',
+            asset: 'logo/doubao_nomark.svg',
             name: 'doubao_nomark',
             url: 'https://github.com/ihmily/doubao-nomark',
+          ),
+          _divider(context),
+          _repoRow(
+            context,
+            asset: 'logo/Douyin_TikTok_Download_API.png',
+            name: 'Douyin_TikTok_Download_API',
+            url: 'https://github.com/Evil0ctal/Douyin_TikTok_Download_API',
           ),
           _divider(context),
           _sectionHeader(context, 'Flutter 依赖'),
@@ -72,6 +79,9 @@ class RepoListPage extends StatelessWidget {
           _divider(context),
           _pkgRow(
               context, 'url_launcher', 'https://pub.dev/packages/url_launcher'),
+          _divider(context),
+          _pkgRow(context, 'pointycastle',
+              'https://pub.dev/packages/pointycastle'),
           _divider(context),
         ],
       ),
@@ -131,7 +141,7 @@ class RepoListPage extends StatelessWidget {
   }
 
   Widget _buildIcon(String asset) {
-    if (asset == 'doubao_nomark.svg') {
+    if (asset == 'logo/doubao_nomark.svg') {
       return SvgPicture.string(_doubaoNomarkSvg, width: 24, height: 24);
     }
     if (asset.endsWith('.svg')) {
@@ -152,7 +162,7 @@ class RepoListPage extends StatelessWidget {
               width: 24,
               height: 24,
               child: SvgPicture.asset(
-                'flutter.svg',
+                'logo/flutter.svg',
                 width: 24,
                 height: 24,
               ),
