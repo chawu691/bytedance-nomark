@@ -1,5 +1,4 @@
 import {
-  copyFile,
   mkdir,
   readFile,
   stat,
@@ -11,7 +10,7 @@ import sharp from 'sharp';
 
 const toolDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.dirname(toolDir);
-const sourceSvg = path.resolve(projectDir, '..', 'svg.svg');
+const sourceSvg = path.join(projectDir, 'logo', 'bytedance-nomark.svg');
 const source = await readFile(sourceSvg);
 const generatedPngs = [];
 
@@ -64,7 +63,7 @@ await renderAssetCatalog(
 );
 
 await renderPng('linux/runner/resources/app_icon.png', 512);
-await renderPng('app_icon.png', 512);
+await renderPng('logo/app_icon.png', 512);
 await renderPng('ohos/AppScope/resources/base/media/app_icon.png', 512);
 await renderPng('ohos/entry/src/main/resources/base/media/icon.png', 512);
 
@@ -97,8 +96,6 @@ await writeFile(
   path.join(projectDir, 'windows/runner/resources/app_icon.ico'),
   Buffer.concat([icoHeader, ...icoImages]),
 );
-
-await copyFile(sourceSvg, path.join(projectDir, 'doubao_nomark.svg'));
 
 for (const { output, size } of generatedPngs) {
   const metadata = await sharp(output).metadata();

@@ -44,6 +44,9 @@ dependencies:
   # 打开外部链接（浏览器）
   url_launcher: 6.3.0
 
+  # 内置浏览器内核（抖音/TikTok 登录，Android/iOS/macOS/Windows）
+  flutter_inappwebview: ^6.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -55,6 +58,15 @@ dependency_overrides:
   video_player_android: 2.7.1
   video_player_avfoundation: 2.6.1
   video_player_platform_interface: 6.2.2
+  # flutter_inappwebview 6.1.5 的 flutter_inappwebview_android 1.1.3 仍使用
+  # AGP 9 已禁用的 getDefaultProguardFile('proguard-android.txt')。
+  # 指向官方 master 分支（已修复为 proguard-android-optimize.txt），整体覆盖
+  # 以保证 platform_interface 与各端子包版本一致。
+  flutter_inappwebview:
+    git:
+      url: https://github.com/pichillilorenzo/flutter_inappwebview.git
+      path: flutter_inappwebview
+      ref: master
 
 flutter:
   uses-material-design: true

@@ -82,14 +82,16 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})> parseMedia(
     String url, {
       String douyinCookie = '',
       String tiktokCookie = '',
+      String douyinMsToken = '',
+      String tiktokMsToken = '',
     }) async {
   // 抖音链接
   if (isDouyinUrl(url)) {
-    return parseDouyinMedia(url, cookie: douyinCookie);
+    return parseDouyinMedia(url, cookie: douyinCookie, msToken: douyinMsToken);
   }
   // TikTok 链接
   if (isTiktokUrl(url)) {
-    return parseTiktokMedia(url, cookie: tiktokCookie);
+    return parseTiktokMedia(url, cookie: tiktokCookie, msToken: tiktokMsToken);
   }
   // 千问链接
   if (url.contains('qianwen.com')) {

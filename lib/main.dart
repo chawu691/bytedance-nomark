@@ -11,15 +11,19 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import 'pages/login_page.dart';
 import 'pages/open_source_page.dart';
 import 'providers/media_providers.dart';
 import 'services/app_preferences.dart';
 import 'services/doubao_parser.dart';
+import 'services/inappwebview_login_service.dart';
 import 'services/platform_services.dart';
 import 'theme/app_theme.dart';
+import 'widgets/login_guide_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerInAppWebViewLoginService();
   final prefs = await loadAppPreferences();
   runApp(ProviderScope(
     overrides: [
@@ -66,11 +70,98 @@ class DoubaoNomarkApp extends ConsumerWidget {
 }
 
 // ───────────────────────── 颜色常量 ─────────────────────────
-const _primary = Color(0xFFFF6A3D);
+const _primary = Color(0xFF4E6EF2); // 豆包蓝
 const _success = Color(0xFF22C55E);
 const _info = Color(0xFF3B82F6);
 const _error = Color(0xFFEF4444);
 const _videoDark = Color(0xFF2A2A2A);
+
+// ───────────────────────── 模式切换器（豆包/抖音，带滑块动画） ─────────────────────────
+class _ModeSwitcher extends StatelessWidget {
+  final String currentMode; // 'doubao' | 'douyin'
+  final ValueChanged<String> onModeChanged;
+  final bool compact; // true = 设置页紧凑版，false = 首页大版本
+
+  const _ModeSwitcher({
+    required this.currentMode,
+    required this.onModeChanged,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDouyin = currentMode == 'douyin';
+    final hPad = compact ? 12.0 : 20.0;
+    final vPad = compact ? 4.0 : 6.0;
+    final fontSize = compact ? 12.0 : 14.0;
+    final palette = context.palette;
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.muted,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: IntrinsicWidth(
+        child: Stack(
+          children: [
+            // 滑块层：AnimatedAlign 在左右之间动画，FractionallySizedBox 占 50% 宽度
+            Positioned.fill(
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                alignment: isDouyin
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: 0.5,
+                  heightFactor: 1.0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    decoration: BoxDecoration(
+                      gradient: isDouyin ? douyinGradient : doubaoGradient,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 文字层
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildLabel(
+                    context, '豆包', !isDouyin, hPad, vPad, fontSize),
+                _buildLabel(
+                    context, '抖音', isDouyin, hPad, vPad, fontSize),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(BuildContext context, String text, bool active,
+      double hPad, double vPad, double fontSize) {
+    final palette = context.palette;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onModeChanged(text == '豆包' ? 'doubao' : 'douyin'),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+        alignment: Alignment.center,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+            color: active ? Colors.white : palette.mutedForeground,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 // ───────────────────────── SVG 图标（lucide，与 home.html 同源） ─────────────────────────
 const _pasteSvg = '''
@@ -145,6 +236,155 @@ String _sourceLabel(String sourceType) {
   }
 }
 
+// ───────────────────────── 登录引导与状态行 ─────────────────────────
+
+/// 登录状态行 Widget
+Widget _loginStatusRow(BuildContext context, String title, String cookie) {
+  final palette = context.palette;
+  final logged = cookie.isNotEmpty;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: TextStyle(fontSize: 15, color: palette.foreground)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              logged ? '已登录' : '未登录',
+              style: TextStyle(
+                fontSize: 13,
+                color: logged ? _success : palette.mutedForeground,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right_rounded,
+                size: 16, color: palette.mutedForeground),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+/// Cookie 手动输入底部表单（Linux fallback 复用）
+void showCookieSheet({
+  required BuildContext context,
+  required String title,
+  required String initialValue,
+  required String hint,
+  required ValueChanged<String> onSave,
+}) {
+  final controller = TextEditingController(text: initialValue);
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      final palette = ctx.palette;
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: BoxDecoration(
+              color: palette.card,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: palette.foreground)),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded,
+                          size: 20, color: palette.mutedForeground),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(hint,
+                    style: TextStyle(
+                        fontSize: 12, color: palette.mutedForeground)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  minLines: 3,
+                  maxLines: 6,
+                  autofocus: true,
+                  style:
+                      TextStyle(fontSize: 14, color: palette.foreground),
+                  decoration: InputDecoration(
+                    hintText: '在此粘贴 Cookie',
+                    hintStyle: TextStyle(
+                        fontSize: 13, color: palette.mutedForeground),
+                    filled: true,
+                    fillColor: palette.muted,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      onSave(controller.text);
+                      Navigator.of(ctx).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('保存',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w500)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// 首次切换到抖音模式时弹出登录引导
+Future<void> _showLoginGuide(BuildContext context, WidgetRef ref) async {
+  ref.read(settingsProvider.notifier).setLoginGuideShown(true);
+  final result = await LoginGuideDialog.show(context);
+  if (result == 'douyin' || result == 'tiktok') {
+    final platform = result!;
+    if (context.mounted) {
+      await Navigator.push(context, MaterialPageRoute(
+        builder: (_) => LoginPage(platform: platform),
+      ));
+    }
+  }
+}
+
 // ───────────────────────── 主框架（底部 Tab） ─────────────────────────
 
 class MainShell extends ConsumerStatefulWidget {
@@ -155,7 +395,6 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
-  int _index = 0;
   DateTimeRange? _recentRange;
   bool _historyBatchMode = false;
   Set<String> _selectedHistoryIds = {};
@@ -239,6 +478,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final index = ref.watch(tabIndexProvider);
     final history = ref.watch(historyProvider);
     final visibleHistory = _visibleHistory(history.items);
     final pages = [
@@ -263,26 +503,26 @@ class _MainShellState extends ConsumerState<MainShell> {
         if (!didPop && _historyBatchMode) _exitHistoryBatch();
       },
       child: Scaffold(
-        body: IndexedStack(index: _index, children: pages),
+        body: IndexedStack(index: index, children: pages),
         bottomNavigationBar: _historyBatchMode
             ? _HistoryBatchBar(
                 hasSelection: _selectedHistoryIds.isNotEmpty,
                 onDelete: () => _confirmHistoryDeletion(visibleHistory),
                 onCancel: _exitHistoryBatch,
               )
-            : _buildNavigationBar(context),
+            : _buildNavigationBar(context, index),
       ),
     );
   }
 
-  Widget _buildNavigationBar(BuildContext context) {
+  Widget _buildNavigationBar(BuildContext context, int index) {
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: context.palette.border)),
       ),
       child: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
+        currentIndex: index,
+        onTap: (i) => ref.read(tabIndexProvider.notifier).state = i,
         backgroundColor: context.palette.card,
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: context.palette.mutedForeground,
@@ -429,6 +669,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _parse() async {
+    triggerHaptic(HapticLevel.light);
     FocusScope.of(context).unfocus();
     await ref.read(parseProvider.notifier).parse(_ctrl.text);
 
@@ -486,7 +727,18 @@ class _HomePageState extends ConsumerState<HomePage> {
               children: [
                 const SizedBox(height: 56),
                 // 模式切换
-                _buildModeSwitcher(settings.defaultMode),
+                Center(
+                  child: _ModeSwitcher(
+                    currentMode: settings.defaultMode,
+                    onModeChanged: (m) {
+                      triggerHaptic(HapticLevel.heavy);
+                      ref.read(settingsProvider.notifier).setMode(m);
+                      if (m == 'douyin' && !settings.loginGuideShown) {
+                        _showLoginGuide(context, ref);
+                      }
+                    },
+                  ),
+                ),
                 const SizedBox(height: 24),
                 // 提示文字
                 Padding(
@@ -524,55 +776,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ],
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildModeSwitcher(String currentMode) {
-    return Center(
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.palette.muted,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        padding: const EdgeInsets.all(2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _segment('豆包', currentMode == 'doubao', currentMode, () {
-              ref.read(settingsProvider.notifier).setMode('doubao');
-            }),
-            _segment('抖音', currentMode == 'douyin', currentMode, () {
-              ref.read(settingsProvider.notifier).setMode('douyin');
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _segment(
-      String label, bool active, String currentMode, VoidCallback onTap) {
-    final useGradient = active && currentMode == 'douyin';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        decoration: BoxDecoration(
-          gradient: useGradient ? douyinGradient : null,
-          color: useGradient
-              ? null
-              : (active ? _primary : Colors.transparent),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-            color: active ? Colors.white : context.palette.mutedForeground,
           ),
         ),
       ),
@@ -644,34 +847,41 @@ class _HomePageState extends ConsumerState<HomePage> {
         ref.read(settingsProvider).defaultMode == 'douyin';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: state.isLoading ? null : _parse,
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: isDouyin ? douyinGradient : null,
-            color: isDouyin ? null : _primary,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: isDouyin ? douyinGradient : doubaoGradient,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: state.isLoading ? null : _parse,
             borderRadius: BorderRadius.circular(12),
+            child: Container(
+              alignment: Alignment.center,
+              child: state.isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      '解析',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+            ),
           ),
-          alignment: Alignment.center,
-          child: state.isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text(
-                  '解析',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
-                  ),
-                ),
         ),
       ),
     );
@@ -926,7 +1136,7 @@ class DetailPage extends ConsumerWidget {
           child: Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: _primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ),
@@ -1280,8 +1490,11 @@ class _HistoryTile extends StatelessWidget {
             if (batchMode) ...[
               Checkbox(
                 value: selected,
-                onChanged: (_) => onToggle(),
-                activeColor: _primary,
+                onChanged: (_) {
+                  triggerHaptic(HapticLevel.light);
+                  onToggle();
+                },
+                activeColor: Theme.of(context).colorScheme.primary,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 8),
@@ -1553,8 +1766,17 @@ class SettingsPage extends ConsumerWidget {
                       Text('默认模式',
                           style: TextStyle(
                               fontSize: 15, color: palette.foreground)),
-                      _buildModeSwitcherCompact(
-                          context, settings.defaultMode, ref),
+                      _ModeSwitcher(
+                        currentMode: settings.defaultMode,
+                        onModeChanged: (m) {
+                          triggerHaptic(HapticLevel.heavy);
+                          ref.read(settingsProvider.notifier).setMode(m);
+                          if (m == 'douyin' && !settings.loginGuideShown) {
+                            _showLoginGuide(context, ref);
+                          }
+                        },
+                        compact: true,
+                      ),
                     ],
                   ),
                 ),
@@ -1562,97 +1784,35 @@ class SettingsPage extends ConsumerWidget {
                   context,
                   label: '自动解析',
                   value: settings.autoParse,
-                  onChanged: (v) =>
-                      ref.read(settingsProvider.notifier).setAutoParse(v),
+                  onChanged: (v) {
+                    triggerHaptic(HapticLevel.medium);
+                    ref.read(settingsProvider.notifier).setAutoParse(v);
+                  },
                 ),
                 _toggleRow(
                   context,
                   label: '黑夜模式',
                   value: settings.darkMode,
-                  onChanged: (value) =>
-                      ref.read(settingsProvider.notifier).setDarkMode(value),
+                  onChanged: (value) {
+                    triggerHaptic(HapticLevel.medium);
+                    ref.read(settingsProvider.notifier).setDarkMode(value);
+                  },
                 ),
               ]),
-              // 抖音 / TikTok Cookie
-              _sectionTitle(context, '抖音 / TikTok'),
+              // 登录状态
+              _sectionTitle(context, '登录状态'),
               _cardGroup(context, [
                 InkWell(
-                  onTap: () => _showCookieSheet(
-                    context: context,
-                    title: '抖音 Cookie',
-                    initialValue: settings.douyinCookie,
-                    hint: '粘贴抖音网页版 Cookie（含 ttwid、msToken 等）',
-                    onSave: (v) =>
-                        ref.read(settingsProvider.notifier).setDouyinCookie(v),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('抖音 Cookie',
-                            style: TextStyle(
-                                fontSize: 15, color: palette.foreground)),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                                settings.douyinCookie.isEmpty
-                                    ? '未设置'
-                                    : '已设置',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: settings.douyinCookie.isEmpty
-                                        ? palette.mutedForeground
-                                        : _success)),
-                            const SizedBox(width: 6),
-                            Icon(Icons.chevron_right_rounded,
-                                size: 16, color: palette.mutedForeground),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const LoginPage(platform: 'douyin'),
+                  )),
+                  child: _loginStatusRow(context, '抖音状态', settings.douyinCookie),
                 ),
                 InkWell(
-                  onTap: () => _showCookieSheet(
-                    context: context,
-                    title: 'TikTok Cookie',
-                    initialValue: settings.tiktokCookie,
-                    hint: '粘贴 TikTok 网页版 Cookie（含 ttwid、msToken 等）',
-                    onSave: (v) =>
-                        ref.read(settingsProvider.notifier).setTiktokCookie(v),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('TikTok Cookie',
-                            style: TextStyle(
-                                fontSize: 15, color: palette.foreground)),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                                settings.tiktokCookie.isEmpty
-                                    ? '未设置'
-                                    : '已设置',
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: settings.tiktokCookie.isEmpty
-                                        ? palette.mutedForeground
-                                        : _success)),
-                            const SizedBox(width: 6),
-                            Icon(Icons.chevron_right_rounded,
-                                size: 16, color: palette.mutedForeground),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                  onTap: () => Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const LoginPage(platform: 'tiktok'),
+                  )),
+                  child: _loginStatusRow(context, 'TikTok状态', settings.tiktokCookie),
                 ),
               ]),
               // 关于
@@ -1749,57 +1909,6 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  /// 紧凑版 segmented control（用于设置页）
-  Widget _buildModeSwitcherCompact(
-      BuildContext context, String currentMode, WidgetRef ref) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.palette.muted,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _segmentCompact(
-              context, '豆包', currentMode == 'doubao', currentMode, () {
-            ref.read(settingsProvider.notifier).setMode('doubao');
-          }),
-          _segmentCompact(
-              context, '抖音', currentMode == 'douyin', currentMode, () {
-            ref.read(settingsProvider.notifier).setMode('douyin');
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _segmentCompact(BuildContext context, String label, bool active,
-      String currentMode, VoidCallback onTap) {
-    final useGradient = active && currentMode == 'douyin';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          gradient: useGradient ? douyinGradient : null,
-          color: useGradient
-              ? null
-              : (active ? _primary : Colors.transparent),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: active ? FontWeight.w500 : FontWeight.w400,
-            color: active ? Colors.white : context.palette.mutedForeground,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
@@ -1867,7 +1976,7 @@ class SettingsPage extends ConsumerWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: _primary,
+            activeTrackColor: Theme.of(context).colorScheme.primary,
             activeThumbColor: Colors.white,
             inactiveThumbColor: Colors.white,
             inactiveTrackColor: context.palette.border,
@@ -1955,108 +2064,6 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  /// 抖音 / TikTok Cookie 输入底部表单
-  void _showCookieSheet({
-    required BuildContext context,
-    required String title,
-    required String initialValue,
-    required String hint,
-    required ValueChanged<String> onSave,
-  }) {
-    final controller = TextEditingController(text: initialValue);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final palette = ctx.palette;
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: SafeArea(
-            top: false,
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              decoration: BoxDecoration(
-                color: palette.card,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(title,
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: palette.foreground)),
-                      IconButton(
-                        icon: Icon(Icons.close_rounded,
-                            size: 20, color: palette.mutedForeground),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(hint,
-                      style: TextStyle(
-                          fontSize: 12, color: palette.mutedForeground)),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    minLines: 3,
-                    maxLines: 6,
-                    autofocus: true,
-                    style:
-                        TextStyle(fontSize: 14, color: palette.foreground),
-                    decoration: InputDecoration(
-                      hintText: '在此粘贴 Cookie',
-                      hintStyle: TextStyle(
-                          fontSize: 13, color: palette.mutedForeground),
-                      filled: true,
-                      fillColor: palette.muted,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        onSave(controller.text);
-                        Navigator.of(ctx).pop();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('保存',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w500)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 // ───────────────────────── 可选中图片卡片 ─────────────────────────
@@ -2398,6 +2405,7 @@ class _SelectableImageTile extends ConsumerWidget {
               right: 8,
               top: 8,
               child: _buildStatusBadge(
+                context,
                 isSelected,
                 isBusy,
                 isDone,
@@ -2411,6 +2419,7 @@ class _SelectableImageTile extends ConsumerWidget {
   }
 
   Widget _buildStatusBadge(
+    BuildContext context,
     bool selected,
     bool busy,
     bool done,
@@ -2442,8 +2451,11 @@ class _SelectableImageTile extends ConsumerWidget {
           height: 20,
           child: Checkbox(
             value: selected,
-            onChanged: (_) => onToggle(),
-            activeColor: _primary,
+            onChanged: (_) {
+              triggerHaptic(HapticLevel.light);
+              onToggle();
+            },
+            activeColor: Theme.of(context).colorScheme.primary,
             checkColor: Colors.white,
             shape: const CircleBorder(),
             side: const BorderSide(color: Color(0xD9FFFFFF), width: 2),
@@ -2566,6 +2578,7 @@ class _SelectableVideoTile extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: _buildStatusBadge(
+                context,
                 isSelected,
                 isBusy,
                 isDone,
@@ -2581,6 +2594,7 @@ class _SelectableVideoTile extends ConsumerWidget {
   }
 
   Widget _buildStatusBadge(
+    BuildContext context,
     bool selected,
     bool busy,
     bool done,
@@ -2612,8 +2626,11 @@ class _SelectableVideoTile extends ConsumerWidget {
           height: 20,
           child: Checkbox(
             value: selected,
-            onChanged: (_) => onToggle(),
-            activeColor: _primary,
+            onChanged: (_) {
+              triggerHaptic(HapticLevel.light);
+              onToggle();
+            },
+            activeColor: Theme.of(context).colorScheme.primary,
             checkColor: Colors.white,
             shape: const CircleBorder(),
             side: const BorderSide(color: Color(0xD9FFFFFF), width: 2),

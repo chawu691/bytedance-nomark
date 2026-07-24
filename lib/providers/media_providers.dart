@@ -77,6 +77,8 @@ class ParseNotifier extends StateNotifier<ParseState> {
         url,
         douyinCookie: settings.douyinCookie,
         tiktokCookie: settings.tiktokCookie,
+        douyinMsToken: settings.douyinMsToken,
+        tiktokMsToken: settings.tiktokMsToken,
       );
       final images = result.images;
       final videos = result.videos;
@@ -265,6 +267,8 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
         _set(url, status: DownloadStatus.idle);
       }
     });
+    // 下载完成震动反馈（fire-and-forget）
+    triggerHaptic(HapticLevel.medium);
   }
 
   /// 视频：下载到临时文件 → Gal.putVideo
@@ -476,8 +480,19 @@ class SettingsState {
   final String defaultMode; // 'doubao' | 'douyin'
   final bool autoParse;
   final bool darkMode;
-  final String douyinCookie; // 抖音 Web Cookie（用户在设置页填入）
-  final String tiktokCookie; // TikTok Web Cookie（用户在设置页填入）
+  final String douyinCookie; // 抖音 Web Cookie 整串（原样保存备用）
+  final String tiktokCookie; // TikTok Web Cookie 整串（原样保存备用）
+  final bool loginGuideShown; // 是否已展示过登录引导
+  final bool privacyNoticeShown; // 是否已选"不再提示"
+  // 关键字段（从 Cookie 整串提取并单独持久化，供解析稳定使用）
+  final String douyinMsToken;
+  final String tiktokMsToken;
+  final String douyinTtwid;
+  final String tiktokTtwid;
+  final String douyinSessionid;
+  final String tiktokSessionid;
+  final String douyinSvWebId;
+  final String tiktokSvWebId;
 
   const SettingsState({
     this.defaultMode = 'doubao',
@@ -485,6 +500,16 @@ class SettingsState {
     this.darkMode = false,
     this.douyinCookie = '',
     this.tiktokCookie = '',
+    this.loginGuideShown = false,
+    this.privacyNoticeShown = false,
+    this.douyinMsToken = '',
+    this.tiktokMsToken = '',
+    this.douyinTtwid = '',
+    this.tiktokTtwid = '',
+    this.douyinSessionid = '',
+    this.tiktokSessionid = '',
+    this.douyinSvWebId = '',
+    this.tiktokSvWebId = '',
   });
 
   SettingsState copyWith({
@@ -493,6 +518,16 @@ class SettingsState {
     bool? darkMode,
     String? douyinCookie,
     String? tiktokCookie,
+    bool? loginGuideShown,
+    bool? privacyNoticeShown,
+    String? douyinMsToken,
+    String? tiktokMsToken,
+    String? douyinTtwid,
+    String? tiktokTtwid,
+    String? douyinSessionid,
+    String? tiktokSessionid,
+    String? douyinSvWebId,
+    String? tiktokSvWebId,
   }) {
     return SettingsState(
       defaultMode: defaultMode ?? this.defaultMode,
@@ -500,6 +535,16 @@ class SettingsState {
       darkMode: darkMode ?? this.darkMode,
       douyinCookie: douyinCookie ?? this.douyinCookie,
       tiktokCookie: tiktokCookie ?? this.tiktokCookie,
+      loginGuideShown: loginGuideShown ?? this.loginGuideShown,
+      privacyNoticeShown: privacyNoticeShown ?? this.privacyNoticeShown,
+      douyinMsToken: douyinMsToken ?? this.douyinMsToken,
+      tiktokMsToken: tiktokMsToken ?? this.tiktokMsToken,
+      douyinTtwid: douyinTtwid ?? this.douyinTtwid,
+      tiktokTtwid: tiktokTtwid ?? this.tiktokTtwid,
+      douyinSessionid: douyinSessionid ?? this.douyinSessionid,
+      tiktokSessionid: tiktokSessionid ?? this.tiktokSessionid,
+      douyinSvWebId: douyinSvWebId ?? this.douyinSvWebId,
+      tiktokSvWebId: tiktokSvWebId ?? this.tiktokSvWebId,
     );
   }
 }
@@ -523,6 +568,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const _kDarkMode = 'settings_darkMode';
   static const _kDouyinCookie = 'settings_douyinCookie';
   static const _kTiktokCookie = 'settings_tiktokCookie';
+  static const _kLoginGuideShown = 'settings_loginGuideShown';
+  static const _kPrivacyNoticeShown = 'settings_privacyNoticeShown';
+  static const _kDouyinMsToken = 'settings_douyinMsToken';
+  static const _kTiktokMsToken = 'settings_tiktokMsToken';
+  static const _kDouyinTtwid = 'settings_douyinTtwid';
+  static const _kTiktokTtwid = 'settings_tiktokTtwid';
+  static const _kDouyinSessionid = 'settings_douyinSessionid';
+  static const _kTiktokSessionid = 'settings_tiktokSessionid';
+  static const _kDouyinSvWebId = 'settings_douyinSvWebId';
+  static const _kTiktokSvWebId = 'settings_tiktokSvWebId';
 
   void _load() {
     state = SettingsState(
@@ -531,6 +586,16 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       darkMode: _prefs.getBool(_kDarkMode) ?? false,
       douyinCookie: _prefs.getString(_kDouyinCookie) ?? '',
       tiktokCookie: _prefs.getString(_kTiktokCookie) ?? '',
+      loginGuideShown: _prefs.getBool(_kLoginGuideShown) ?? false,
+      privacyNoticeShown: _prefs.getBool(_kPrivacyNoticeShown) ?? false,
+      douyinMsToken: _prefs.getString(_kDouyinMsToken) ?? '',
+      tiktokMsToken: _prefs.getString(_kTiktokMsToken) ?? '',
+      douyinTtwid: _prefs.getString(_kDouyinTtwid) ?? '',
+      tiktokTtwid: _prefs.getString(_kTiktokTtwid) ?? '',
+      douyinSessionid: _prefs.getString(_kDouyinSessionid) ?? '',
+      tiktokSessionid: _prefs.getString(_kTiktokSessionid) ?? '',
+      douyinSvWebId: _prefs.getString(_kDouyinSvWebId) ?? '',
+      tiktokSvWebId: _prefs.getString(_kTiktokSvWebId) ?? '',
     );
   }
 
@@ -552,13 +617,57 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setDouyinCookie(String value) {
     final trimmed = value.trim();
     _prefs.setString(_kDouyinCookie, trimmed);
-    state = state.copyWith(douyinCookie: trimmed);
+    final msToken = _extractCookieValue(trimmed, 'msToken');
+    final ttwid = _extractCookieValue(trimmed, 'ttwid');
+    final sessionid = _extractCookieValue(trimmed, 'sessionid');
+    final sVwebId = _extractCookieValue(trimmed, 's_v_web_id');
+    _prefs.setString(_kDouyinMsToken, msToken);
+    _prefs.setString(_kDouyinTtwid, ttwid);
+    _prefs.setString(_kDouyinSessionid, sessionid);
+    _prefs.setString(_kDouyinSvWebId, sVwebId);
+    state = state.copyWith(
+      douyinCookie: trimmed,
+      douyinMsToken: msToken,
+      douyinTtwid: ttwid,
+      douyinSessionid: sessionid,
+      douyinSvWebId: sVwebId,
+    );
   }
 
   void setTiktokCookie(String value) {
     final trimmed = value.trim();
     _prefs.setString(_kTiktokCookie, trimmed);
-    state = state.copyWith(tiktokCookie: trimmed);
+    final msToken = _extractCookieValue(trimmed, 'msToken');
+    final ttwid = _extractCookieValue(trimmed, 'ttwid');
+    final sessionid = _extractCookieValue(trimmed, 'sessionid');
+    final sVwebId = _extractCookieValue(trimmed, 's_v_web_id');
+    _prefs.setString(_kTiktokMsToken, msToken);
+    _prefs.setString(_kTiktokTtwid, ttwid);
+    _prefs.setString(_kTiktokSessionid, sessionid);
+    _prefs.setString(_kTiktokSvWebId, sVwebId);
+    state = state.copyWith(
+      tiktokCookie: trimmed,
+      tiktokMsToken: msToken,
+      tiktokTtwid: ttwid,
+      tiktokSessionid: sessionid,
+      tiktokSvWebId: sVwebId,
+    );
+  }
+
+  void setLoginGuideShown(bool v) {
+    _prefs.setBool(_kLoginGuideShown, v);
+    state = state.copyWith(loginGuideShown: v);
+  }
+
+  void setPrivacyNoticeShown(bool v) {
+    _prefs.setBool(_kPrivacyNoticeShown, v);
+    state = state.copyWith(privacyNoticeShown: v);
+  }
+
+  String _extractCookieValue(String cookieStr, String key) {
+    final regex = RegExp('$key=([^;]+)');
+    final match = regex.firstMatch(cookieStr);
+    return match?.group(1) ?? '';
   }
 
   /// 只清空临时缓存目录，设置和解析历史均保留。
@@ -575,6 +684,12 @@ final settingsProvider =
     StateNotifierProvider<SettingsNotifier, SettingsState>((ref) {
   throw UnimplementedError('需要在 main 中 override');
 });
+
+// ───────────────────────── Tab 导航 ─────────────────────────
+
+/// 当前 Tab 索引（0=首页, 1=最近, 2=设置）
+/// 用于跨页面切换 tab（登录成功后跳转设置页）
+final tabIndexProvider = StateProvider<int>((ref) => 0);
 
 // ───────────────────────── 解析历史 ─────────────────────────
 

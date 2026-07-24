@@ -43,6 +43,7 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})>
     parseDouyinMedia(
   String url, {
   String cookie = '',
+  String msToken = '',
   Dio? dioOverride,
 }) async {
   final dio = dioOverride ??
@@ -84,7 +85,7 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})>
       'downlink': '10',
       'effective_type': '4g',
       'round_trip_time': '50',
-      'msToken': '',
+      'msToken': msToken,
     };
 
     // 生成 a_bogus 签名
@@ -249,6 +250,7 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})>
     parseTiktokMedia(
   String url, {
   String cookie = '',
+  String msToken = '',
   Dio? dioOverride,
 }) async {
   final dio = dioOverride ??
@@ -295,7 +297,7 @@ Future<({List<ParsedImage> images, List<ParsedVideo> videos})>
       'webcast_language': 'en',
       'tz_name': 'America%2FTijuana',
       'itemId': itemId,
-      'msToken': '',
+      'msToken': msToken,
     };
 
     final paramStr = _paramsToQueryString(params);

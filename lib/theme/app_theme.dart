@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-const appPrimary = Color(0xFFFF6A3D);
+const appPrimary = Color(0xFF4E6EF2); // 豆包蓝
 const appDarkBackground = Color(0xFF1E1E1E);
 const appDarkForeground = Color(0xFFD4D4D4);
 
@@ -8,6 +8,10 @@ const appDarkForeground = Color(0xFFD4D4D4);
 const douyinCyan = Color(0xFF25F4EE);
 const douyinRed = Color(0xFFFE2C55);
 const appDouyinPrimary = Color(0xFFFE2C55); // 单色（用于控件选中态）
+
+// 豆包主题色：豆包蓝深浅渐变
+const doubaoBlueLight = Color(0xFF4E6EF2);
+const doubaoBlueDeep = Color(0xFF3157F4);
 
 @immutable
 class AppPalette extends ThemeExtension<AppPalette> {
@@ -169,6 +173,13 @@ ThemeData buildAppTheme(Brightness brightness, {String mode = 'doubao'}) {
 /// 抖音模式专属的青红渐变（用于主按钮、模式切换器选中态、解析按钮等）
 const douyinGradient = LinearGradient(
   colors: [douyinCyan, douyinRed],
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+);
+
+/// 豆包模式专属的蓝色深浅渐变（用于主按钮、模式切换器选中态、解析按钮等）
+const doubaoGradient = LinearGradient(
+  colors: [doubaoBlueLight, doubaoBlueDeep],
   begin: Alignment.centerLeft,
   end: Alignment.centerRight,
 );

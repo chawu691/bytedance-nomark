@@ -65,3 +65,35 @@ Future<OhosSaveResult> saveOhosMediaBatch(List<OhosMediaFile> files) async {
     cancelled: raw['cancelled'] == true,
   );
 }
+
+// ───────────────────────── 震动反馈 ─────────────────────────
+
+/// 震动反馈等级
+enum HapticLevel {
+  light, // 轻震动：点击解析按钮、点击复选框
+  medium, // 中震动：开关切换、下载完成
+  heavy, // 强震动：切换解析模式
+}
+
+/// 触发震动反馈（自动适配 Android/iOS/HarmonyOS）
+Future<void> triggerHaptic(HapticLevel level) async {
+  if (isOhos) {
+    try {
+      await platformChannel
+          .invokeMethod('hapticFeedback', {'level': level.name});
+    } catch (_) {}
+    return;
+  }
+  // Android/iOS 走 Flutter HapticFeedback
+  switch (level) {
+    case HapticLevel.light:
+      await HapticFeedback.lightImpact();
+      break;
+    case HapticLevel.medium:
+      await HapticFeedback.mediumImpact();
+      break;
+    case HapticLevel.heavy:
+      await HapticFeedback.heavyImpact();
+      break;
+  }
+}

@@ -1,8 +1,11 @@
 import { preferences } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { emitter } from '@kit.BasicServicesKit';
 import { fileIo, fileUri } from '@kit.CoreFileKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { vibrator } from '@kit.SensorServiceKit';
+import { router } from '@kit.ArkUI';
 import {
   Any,
   FlutterPlugin,
@@ -14,9 +17,23 @@ import { MethodResult } from '@ohos/flutter_ohos/src/main/ets/plugin/common/Meth
 
 const CHANNEL = 'io.github.bytedance_nomark/platform';
 const STORE_NAME = 'nomark_preferences';
+const LOGIN_RESULT_EVENT_ID = 1001;
 const PREFERENCE_KEYS: string[] = [
   'settings_defaultMode',
   'settings_autoParse',
+  'settings_darkMode',
+  'settings_douyinCookie',
+  'settings_tiktokCookie',
+  'settings_loginGuideShown',
+  'settings_privacyNoticeShown',
+  'settings_douyinMsToken',
+  'settings_tiktokMsToken',
+  'settings_douyinTtwid',
+  'settings_tiktokTtwid',
+  'settings_douyinSessionid',
+  'settings_tiktokSessionid',
+  'settings_douyinSvWebId',
+  'settings_tiktokSvWebId',
   'history_items'
 ];
 
@@ -88,6 +105,17 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
           result.success(await this.saveMediaBatch(
             call.argument('files') as Array<Any>
           ));
+          return;
+        case 'hapticFeedback':
+          await this.handleHaptic(call.argument('level') as string);
+          result.success('success');
+          return;
+        case 'openLoginPage':
+          await this.handleOpenLoginPage(
+            call.argument('loginUrl') as string,
+            call.argument('targetHost') as string,
+            result
+          );
           return;
         default:
           result.notImplemented();
@@ -164,6 +192,41 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
   private title(fileName: string): string {
     const index = fileName.lastIndexOf('.');
     return index > 0 ? fileName.substring(0, index) : fileName;
+  }
+
+  private async handleHaptic(level: string): Promise<void> {
+    // 按等级映射震动时长（毫秒）
+    const duration = level === 'heavy' ? 50 : level === 'medium' ? 30 : 15;
+    try {
+      await vibrator.startVibration(
+        { type: 'time', duration: duration },
+        { id: 0, usage: 'touch' }
+      );
+    } catch (error) {
+      // 抛出错误，由 onMethodCall 的 catch 统一返回 result.error
+      throw error;
+    }
+  }
+
+  private async handleOpenLoginPage(
+    loginUrl: string,
+    targetHost: string,
+    result: MethodResult
+  ): Promise<void> {
+    // 监听 LoginWebPage 通过 emitter 发回的 Cookie
+    emitter.on({ id: LOGIN_RESULT_EVENT_ID }, (eventData: emitter.EventData) => {
+      const cookieStr = (eventData.data?.cookieStr as string) ?? '';
+      emitter.off(LOGIN_RESULT_EVENT_ID);
+      result.success(cookieStr.length > 0 ? cookieStr : null);
+    });
+    // 跳转到 LoginWebPage
+    router.pushUrl({
+      url: 'pages/LoginWebPage',
+      params: {
+        url: loginUrl,
+        targetHost: targetHost
+      }
+    });
   }
 
   private async saveMediaBatch(rawFiles: Array<Any>): Promise<Map<string, Any>> {
