@@ -2259,17 +2259,52 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
   bool get _hasMusic =>
       widget.video.musicUrl != null && widget.video.musicUrl!.isNotEmpty;
 
+  bool _isBusy(DownloadTask? t) =>
+      t?.status == DownloadStatus.downloading ||
+      t?.status == DownloadStatus.saving;
+
+  Widget _fabChild(DownloadTask? task, IconData defaultIcon) {
+    switch (task?.status) {
+      case DownloadStatus.downloading:
+        return SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            value: task!.progress > 0 ? task.progress : null,
+            strokeWidth: 2.5,
+            color: Colors.black,
+          ),
+        );
+      case DownloadStatus.saving:
+        return const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: Colors.black,
+          ),
+        );
+      case DownloadStatus.done:
+        return const Icon(Icons.check_rounded, color: Colors.green);
+      case DownloadStatus.error:
+        return const Icon(Icons.error_outline, color: Colors.red);
+      case DownloadStatus.idle:
+      case null:
+        return Icon(defaultIcon);
+    }
+  }
+
   /// 右下角下载入口：无可用项不显示；仅一项直接显示该按钮；
   /// 两项都有则 SpeedDial 展开式菜单。
-  Widget? _buildDownloadFab() {
+  Widget? _buildDownloadFab(DownloadTask? coverTask, DownloadTask? musicTask) {
     if (!_hasCover && !_hasMusic) return null;
     if (_hasCover && !_hasMusic) {
       return FloatingActionButton(
         heroTag: 'videoDownloadCover',
         backgroundColor: const Color(0xE6FFFFFF),
         foregroundColor: Colors.black,
-        onPressed: _downloadCover,
-        child: const Icon(Icons.image_outlined),
+        onPressed: _isBusy(coverTask) ? null : _downloadCover,
+        child: _fabChild(coverTask, Icons.image_outlined),
       );
     }
     if (_hasMusic && !_hasCover) {
@@ -2277,8 +2312,8 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
         heroTag: 'videoDownloadMusic',
         backgroundColor: const Color(0xE6FFFFFF),
         foregroundColor: Colors.black,
-        onPressed: _downloadMusic,
-        child: const Icon(Icons.music_note_outlined),
+        onPressed: _isBusy(musicTask) ? null : _downloadMusic,
+        child: _fabChild(musicTask, Icons.music_note_outlined),
       );
     }
     // 两项都有：SpeedDial
@@ -2295,6 +2330,7 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
               icon: Icons.music_note_outlined,
               label: '下载音乐',
               heroTag: 'videoDownloadMusic',
+              task: musicTask,
               onPressed: () {
                 setState(() => _fabExpanded = false);
                 _downloadMusic();
@@ -2305,6 +2341,7 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
               icon: Icons.image_outlined,
               label: '下载封面',
               heroTag: 'videoDownloadCover',
+              task: coverTask,
               onPressed: () {
                 setState(() => _fabExpanded = false);
                 _downloadCover();
@@ -2330,8 +2367,50 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
     );
   }
 
+  void _maybeShowSnack(
+    Map<String, DownloadTask>? prev,
+    Map<String, DownloadTask> next,
+    String? url,
+    String label,
+    String doneMsg,
+  ) {
+    if (url == null) return;
+    final prevStatus = prev?[url]?.status;
+    final nextStatus = next[url]?.status;
+    if (prevStatus == nextStatus) return;
+    if (nextStatus == DownloadStatus.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label$doneMsg'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else if (nextStatus == DownloadStatus.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$label下载失败：${next[url]?.error ?? ''}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final coverUrl = widget.video.coverUrl;
+    final musicUrl = widget.video.musicUrl;
+    final coverTask = coverUrl != null
+        ? ref.watch(downloadProvider.select((s) => s[coverUrl]))
+        : null;
+    final musicTask = musicUrl != null
+        ? ref.watch(downloadProvider.select((s) => s[musicUrl]))
+        : null;
+
+    ref.listen<Map<String, DownloadTask>>(downloadProvider, (prev, next) {
+      _maybeShowSnack(prev, next, coverUrl, '封面', '已保存到相册');
+      _maybeShowSnack(prev, next, musicUrl, '音乐', '已保存');
+    });
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -2339,7 +2418,10 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
-      floatingActionButton: _buildDownloadFab(),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: _buildDownloadFab(coverTask, musicTask),
+      ),
       body: Center(
         child: FutureBuilder<void>(
           future: _initialization,
@@ -2461,17 +2543,32 @@ class _DownloadFabItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final String heroTag;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final DownloadTask? task;
 
   const _DownloadFabItem({
     required this.icon,
     required this.label,
     required this.heroTag,
     required this.onPressed,
+    this.task,
   });
 
   @override
   Widget build(BuildContext context) {
+    final status = task?.status;
+    final isBusy = status == DownloadStatus.downloading ||
+        status == DownloadStatus.saving;
+    String displayLabel = label;
+    if (isBusy) {
+      displayLabel = task!.progress > 0
+          ? '${(task!.progress * 100).round()}%'
+          : '准备中';
+    } else if (status == DownloadStatus.done) {
+      displayLabel = '已保存';
+    } else if (status == DownloadStatus.error) {
+      displayLabel = '失败';
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2482,7 +2579,7 @@ class _DownloadFabItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            label,
+            displayLabel,
             style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
         ),
@@ -2491,11 +2588,42 @@ class _DownloadFabItem extends StatelessWidget {
           heroTag: heroTag,
           backgroundColor: const Color(0xE6FFFFFF),
           foregroundColor: Colors.black,
-          onPressed: onPressed,
-          child: Icon(icon),
+          onPressed: isBusy ? null : onPressed,
+          child: _buildChild(status),
         ),
       ],
     );
+  }
+
+  Widget _buildChild(DownloadStatus? status) {
+    switch (status) {
+      case DownloadStatus.downloading:
+        return SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            value: task!.progress > 0 ? task!.progress : null,
+            strokeWidth: 2.5,
+            color: Colors.black,
+          ),
+        );
+      case DownloadStatus.saving:
+        return const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: Colors.black,
+          ),
+        );
+      case DownloadStatus.done:
+        return const Icon(Icons.check_rounded, color: Colors.green);
+      case DownloadStatus.error:
+        return const Icon(Icons.error_outline, color: Colors.red);
+      case DownloadStatus.idle:
+      case null:
+        return Icon(icon);
+    }
   }
 }
 
