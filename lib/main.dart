@@ -19,6 +19,7 @@ import 'services/doubao_parser.dart';
 import 'services/inappwebview_login_service.dart';
 import 'services/platform_services.dart';
 import 'theme/app_theme.dart';
+import 'widgets/agreement_dialog.dart';
 import 'widgets/login_guide_dialog.dart';
 
 Future<void> main() async {
@@ -398,6 +399,34 @@ class _MainShellState extends ConsumerState<MainShell> {
   DateTimeRange? _recentRange;
   bool _historyBatchMode = false;
   Set<String> _selectedHistoryIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // 首次启动：未同意条款时弹出协议同意对话框
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final accepted = ref.read(settingsProvider).agreementAccepted;
+      if (!accepted) {
+        _showAgreementDialog();
+      }
+    });
+  }
+
+  Future<void> _showAgreementDialog() async {
+    final result = await AgreementDialog.show(context);
+    if (result == true) {
+      ref.read(settingsProvider.notifier).setAgreementAccepted(true);
+    } else {
+      // 用户点击退出或 dismiss：退出 App
+      // Android 走 SystemNavigator.pop；iOS 不允许主动退出，回退到退出无效时仅停留
+      await SystemNavigator.pop();
+      // 兜底：若 SystemNavigator.pop 不生效（如桌面端），强制退出进程
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        exit(0);
+      }
+    }
+  }
 
   List<HistoryItem> _visibleHistory(List<HistoryItem> items) {
     final range = _recentRange;
@@ -2177,6 +2206,7 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
   late final VideoPlayerController _controller;
   late final Future<void> _initialization;
   double _playbackSpeed = 1.0;
+  bool _fabExpanded = false;
 
   @override
   void initState() {
@@ -2224,6 +2254,82 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
     ref.read(downloadProvider.notifier).downloadMusic(widget.video);
   }
 
+  bool get _hasCover =>
+      widget.video.coverUrl != null && widget.video.coverUrl!.isNotEmpty;
+  bool get _hasMusic =>
+      widget.video.musicUrl != null && widget.video.musicUrl!.isNotEmpty;
+
+  /// 右下角下载入口：无可用项不显示；仅一项直接显示该按钮；
+  /// 两项都有则 SpeedDial 展开式菜单。
+  Widget? _buildDownloadFab() {
+    if (!_hasCover && !_hasMusic) return null;
+    if (_hasCover && !_hasMusic) {
+      return FloatingActionButton(
+        heroTag: 'videoDownloadCover',
+        backgroundColor: const Color(0xE6FFFFFF),
+        foregroundColor: Colors.black,
+        onPressed: _downloadCover,
+        child: const Icon(Icons.image_outlined),
+      );
+    }
+    if (_hasMusic && !_hasCover) {
+      return FloatingActionButton(
+        heroTag: 'videoDownloadMusic',
+        backgroundColor: const Color(0xE6FFFFFF),
+        foregroundColor: Colors.black,
+        onPressed: _downloadMusic,
+        child: const Icon(Icons.music_note_outlined),
+      );
+    }
+    // 两项都有：SpeedDial
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.bottomRight,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (_fabExpanded) ...[
+            _DownloadFabItem(
+              icon: Icons.music_note_outlined,
+              label: '下载音乐',
+              heroTag: 'videoDownloadMusic',
+              onPressed: () {
+                setState(() => _fabExpanded = false);
+                _downloadMusic();
+              },
+            ),
+            const SizedBox(height: 10),
+            _DownloadFabItem(
+              icon: Icons.image_outlined,
+              label: '下载封面',
+              heroTag: 'videoDownloadCover',
+              onPressed: () {
+                setState(() => _fabExpanded = false);
+                _downloadCover();
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+          FloatingActionButton(
+            heroTag: 'videoDownload',
+            backgroundColor: const Color(0xE6FFFFFF),
+            foregroundColor: Colors.black,
+            onPressed: () => setState(() => _fabExpanded = !_fabExpanded),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                _fabExpanded ? Icons.close_rounded : Icons.download_rounded,
+                key: ValueKey(_fabExpanded),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2232,21 +2338,8 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
         title: const Text('视频播放'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        actions: [
-          if (widget.video.coverUrl != null)
-            IconButton(
-              icon: const Icon(Icons.image_outlined),
-              tooltip: '下载封面',
-              onPressed: _downloadCover,
-            ),
-          if (widget.video.musicUrl != null)
-            IconButton(
-              icon: const Icon(Icons.music_note_outlined),
-              tooltip: '下载音乐',
-              onPressed: _downloadMusic,
-            ),
-        ],
       ),
+      floatingActionButton: _buildDownloadFab(),
       body: Center(
         child: FutureBuilder<void>(
           future: _initialization,
@@ -2360,6 +2453,48 @@ class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _DownloadFabItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String heroTag;
+  final VoidCallback onPressed;
+
+  const _DownloadFabItem({
+    required this.icon,
+    required this.label,
+    required this.heroTag,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xCC000000),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        const SizedBox(width: 8),
+        FloatingActionButton.small(
+          heroTag: heroTag,
+          backgroundColor: const Color(0xE6FFFFFF),
+          foregroundColor: Colors.black,
+          onPressed: onPressed,
+          child: Icon(icon),
+        ),
+      ],
     );
   }
 }

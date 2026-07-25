@@ -595,6 +595,7 @@ class SettingsState {
   final String tiktokCookie; // TikTok Web Cookie 整串（原样保存备用）
   final bool loginGuideShown; // 是否已展示过登录引导
   final bool privacyNoticeShown; // 是否已选"不再提示"
+  final bool agreementAccepted; // 是否已同意使用条款与隐私协议（首次启动）
   // 关键字段（从 Cookie 整串提取并单独持久化，供解析稳定使用）
   final String douyinMsToken;
   final String tiktokMsToken;
@@ -613,6 +614,7 @@ class SettingsState {
     this.tiktokCookie = '',
     this.loginGuideShown = false,
     this.privacyNoticeShown = false,
+    this.agreementAccepted = false,
     this.douyinMsToken = '',
     this.tiktokMsToken = '',
     this.douyinTtwid = '',
@@ -631,6 +633,7 @@ class SettingsState {
     String? tiktokCookie,
     bool? loginGuideShown,
     bool? privacyNoticeShown,
+    bool? agreementAccepted,
     String? douyinMsToken,
     String? tiktokMsToken,
     String? douyinTtwid,
@@ -648,6 +651,7 @@ class SettingsState {
       tiktokCookie: tiktokCookie ?? this.tiktokCookie,
       loginGuideShown: loginGuideShown ?? this.loginGuideShown,
       privacyNoticeShown: privacyNoticeShown ?? this.privacyNoticeShown,
+      agreementAccepted: agreementAccepted ?? this.agreementAccepted,
       douyinMsToken: douyinMsToken ?? this.douyinMsToken,
       tiktokMsToken: tiktokMsToken ?? this.tiktokMsToken,
       douyinTtwid: douyinTtwid ?? this.douyinTtwid,
@@ -681,6 +685,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   static const _kTiktokCookie = 'settings_tiktokCookie';
   static const _kLoginGuideShown = 'settings_loginGuideShown';
   static const _kPrivacyNoticeShown = 'settings_privacyNoticeShown';
+  static const _kAgreementAccepted = 'settings_agreementAccepted';
   static const _kDouyinMsToken = 'settings_douyinMsToken';
   static const _kTiktokMsToken = 'settings_tiktokMsToken';
   static const _kDouyinTtwid = 'settings_douyinTtwid';
@@ -699,6 +704,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
       tiktokCookie: _prefs.getString(_kTiktokCookie) ?? '',
       loginGuideShown: _prefs.getBool(_kLoginGuideShown) ?? false,
       privacyNoticeShown: _prefs.getBool(_kPrivacyNoticeShown) ?? false,
+      agreementAccepted: _prefs.getBool(_kAgreementAccepted) ?? false,
       douyinMsToken: _prefs.getString(_kDouyinMsToken) ?? '',
       tiktokMsToken: _prefs.getString(_kTiktokMsToken) ?? '',
       douyinTtwid: _prefs.getString(_kDouyinTtwid) ?? '',
@@ -776,6 +782,11 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setPrivacyNoticeShown(bool v) {
     _prefs.setBool(_kPrivacyNoticeShown, v);
     state = state.copyWith(privacyNoticeShown: v);
+  }
+
+  void setAgreementAccepted(bool v) {
+    _prefs.setBool(_kAgreementAccepted, v);
+    state = state.copyWith(agreementAccepted: v);
   }
 
   String _extractCookieValue(String cookieStr, String key) {

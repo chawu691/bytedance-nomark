@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class LoginGuideDialog {
@@ -6,22 +7,30 @@ class LoginGuideDialog {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('抖音解析需要登录'),
-        content: const Text('使用抖音解析功能需要登录，点击下方登录'),
-        actionsOverflowDirection: VerticalDirection.down,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('登录账号'),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            '使用抖音或 TikTok 解析需要先登录账号，否则该功能不可用。\n\n登录信息仅保存在本设备，不会上传云端。',
+            textAlign: TextAlign.start,
+            style: TextStyle(height: 1.4),
+          ),
+        ),
         actions: [
-          FilledButton(
+          CupertinoDialogAction(
+            isDefaultAction: true,
             onPressed: () => Navigator.pop(ctx, 'douyin'),
             child: const Text('登录抖音'),
           ),
-          FilledButton(
+          CupertinoDialogAction(
             onPressed: () => Navigator.pop(ctx, 'tiktok'),
             child: const Text('登录 TikTok'),
           ),
-          TextButton(
+          CupertinoDialogAction(
+            isDestructiveAction: true,
             onPressed: () => Navigator.pop(ctx, 'skip'),
-            child: const Text('暂不登录（此功能将不可用！）'),
+            child: const Text('暂不登录'),
           ),
         ],
       ),
