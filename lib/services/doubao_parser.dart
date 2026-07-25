@@ -34,6 +34,9 @@ class ParsedVideo {
   final int? height;
   final double? duration; // 秒
   final String? videoType; // mp4
+  final String? musicUrl; // 音乐播放直链
+  final String? musicTitle; // 音乐标题（用于文件名）
+  final String? musicAuthor; // 音乐作者（用于文件名）
 
   const ParsedVideo({
     required this.url,
@@ -43,10 +46,14 @@ class ParsedVideo {
     this.height,
     this.duration,
     this.videoType,
+    this.musicUrl,
+    this.musicTitle,
+    this.musicAuthor,
   });
 
   @override
-  String toString() => 'ParsedVideo(url=$url, ${width}x$height, ${duration}s)';
+  String toString() =>
+      'ParsedVideo(url=$url, ${width}x$height, ${duration}s, music=$musicUrl)';
 }
 
 class ParseException implements Exception {

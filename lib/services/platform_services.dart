@@ -66,6 +66,17 @@ Future<OhosSaveResult> saveOhosMediaBatch(List<OhosMediaFile> files) async {
   );
 }
 
+/// OHOS：保存音频文件到 app filesDir 并拉起系统分享面板
+Future<void> saveOhosAudio({
+  required String filePath,
+  required String fileName,
+}) async {
+  await platformChannel.invokeMethod('saveAudio', {
+    'path': filePath,
+    'fileName': fileName,
+  });
+}
+
 // ───────────────────────── 震动反馈 ─────────────────────────
 
 /// 震动反馈等级

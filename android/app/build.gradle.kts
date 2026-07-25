@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "io.github.bytedance_nomark"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -29,6 +29,8 @@
 | flutter_markdown | 0.7.3+1 | Markdown 渲染 | BSD-3-Clause | Flutter Authors | https://pub.dev/packages/flutter_markdown |
 | url_launcher | 6.3.0 | 打开外部链接 | BSD-3-Clause | Flutter Authors | https://pub.dev/packages/url_launcher |
 | pointycastle | 3.9.1 | SM3/MD5/SHA256 哈希（抖音 a_bogus 与 TikTok XBogus 签名） | MIT | Adi Nistor & Contributors | https://pub.dev/packages/pointycastle |
+| share_plus | ^10.1.2 | 音乐文件分享（移动端 share sheet） | BSD-3-Clause | Flutter Authors | https://pub.dev/packages/share_plus |
+| file_picker | ^8.1.3 | 桌面端 saveAs 对话框（音乐保存） | MIT | Miguel Higuera & Contributors | https://pub.dev/packages/file_picker |
 
 ---
 

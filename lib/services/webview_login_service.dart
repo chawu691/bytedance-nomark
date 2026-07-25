@@ -27,14 +27,21 @@ abstract class WebViewLoginService {
     required String loginUrl,
     required String targetHost,
     required List<String> cookieKeys,
+    List<String> cookieUrls = const [],
+    List<String> successCookieKeys = const ['sessionid'],
+    String userAgent = mobileUserAgent,
   });
 }
 
-/// 移动端 UA（伪装 Pixel 10 / Android Chrome）
-/// 桌面端 UA 容易触发抖音扫码风控，改用移动端伪装以走手机号/验证码登录流程
-const pcUserAgent =
+/// TikTok 等现有移动登录页使用的 UA。
+const mobileUserAgent =
     'Mozilla/5.0 (Linux; Android 15; Pixel 10) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/130.0.0.0 Mobile Safari/537.36';
+
+/// 抖音 SSO 二维码页需要执行桌面版 JavaScript。
+const douyinSsoUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/130.0.0.0 Safari/537.36';
 
 /// 平台工厂：根据当前平台返回对应实现
 WebViewLoginService createWebViewLoginService() {
@@ -51,6 +58,9 @@ class _OhosWebViewLoginService implements WebViewLoginService {
     required String loginUrl,
     required String targetHost,
     required List<String> cookieKeys,
+    List<String> cookieUrls = const [],
+    List<String> successCookieKeys = const ['sessionid'],
+    String userAgent = mobileUserAgent,
   }) async {
     try {
       final cookieStr = await platformChannel.invokeMethod<String>(
@@ -59,12 +69,15 @@ class _OhosWebViewLoginService implements WebViewLoginService {
           'loginUrl': loginUrl,
           'targetHost': targetHost,
           'cookieKeys': cookieKeys,
+          'cookieUrls': cookieUrls,
+          'successCookieKeys': successCookieKeys,
+          'userAgent': userAgent,
         },
       );
       if (cookieStr == null || cookieStr.isEmpty) return null;
       final keyCookies = <String, String>{};
       for (final key in cookieKeys) {
-        final regex = RegExp('$key=([^;]+)');
+        final regex = RegExp('(?:^|;\\s*)${RegExp.escape(key)}=([^;]+)');
         final match = regex.firstMatch(cookieStr);
         keyCookies[key] = match?.group(1) ?? '';
       }
@@ -85,6 +98,9 @@ class _LinuxFallbackLoginService implements WebViewLoginService {
     required String loginUrl,
     required String targetHost,
     required List<String> cookieKeys,
+    List<String> cookieUrls = const [],
+    List<String> successCookieKeys = const ['sessionid'],
+    String userAgent = mobileUserAgent,
   }) async {
     await launchUrl(Uri.parse(loginUrl), mode: LaunchMode.externalApplication);
     // 返回 null 触发上层 LoginPage 弹出手动粘贴框

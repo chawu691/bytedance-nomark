@@ -202,14 +202,33 @@ Future<String?> _extractDouyinAwemeId(String url, Dio dio) async {
             coverUrl = coverUrlList[0]?.toString();
           }
         }
+        // 音乐：music.play_url.url_list[0]，结构同 video.play_addr
+        String? musicUrl;
+        String? musicTitle;
+        String? musicAuthor;
+        final music = detail['music'];
+        if (music is Map) {
+          final musicPlayUrl = music['play_url'];
+          if (musicPlayUrl is Map) {
+            final musicUrlList = musicPlayUrl['url_list'];
+            if (musicUrlList is List && musicUrlList.isNotEmpty) {
+              musicUrl = musicUrlList[0]?.toString();
+            }
+          }
+          musicTitle = music['title']?.toString();
+          musicAuthor = music['author']?.toString();
+        }
         videos.add(ParsedVideo(
           url: videoUrl,
           coverUrl: coverUrl,
           vid: uri,
           width: _toInt(video['width']),
           height: _toInt(video['height']),
-          duration: _toDouble(video['duration']),
+          duration: (_toDouble(video['duration']) ?? 0) / 1000.0,
           videoType: 'mp4',
+          musicUrl: musicUrl,
+          musicTitle: musicTitle,
+          musicAuthor: musicAuthor,
         ));
       }
     }
@@ -425,13 +444,32 @@ Future<String?> _extractTiktokItemId(String url, Dio dio) async {
             coverUrl = coverUrlList[0]?.toString();
           }
         }
+        // 音乐：music.play_url.url_list[0]，结构同 video.play_addr
+        String? musicUrl;
+        String? musicTitle;
+        String? musicAuthor;
+        final music = detail['music'];
+        if (music is Map) {
+          final musicPlayUrl = music['play_url'];
+          if (musicPlayUrl is Map) {
+            final musicUrlList = musicPlayUrl['url_list'];
+            if (musicUrlList is List && musicUrlList.isNotEmpty) {
+              musicUrl = musicUrlList[0]?.toString();
+            }
+          }
+          musicTitle = music['title']?.toString();
+          musicAuthor = music['author']?.toString();
+        }
         videos.add(ParsedVideo(
           url: videoUrl,
           coverUrl: coverUrl,
           width: _toInt(video['width']),
           height: _toInt(video['height']),
-          duration: _toDouble(video['duration']),
+          duration: (_toDouble(video['duration']) ?? 0) / 1000.0,
           videoType: 'mp4',
+          musicUrl: musicUrl,
+          musicTitle: musicTitle,
+          musicAuthor: musicAuthor,
         ));
       }
     }

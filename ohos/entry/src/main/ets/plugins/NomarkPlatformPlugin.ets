@@ -1,5 +1,5 @@
 import { preferences } from '@kit.ArkData';
-import { common } from '@kit.AbilityKit';
+import { common, systemShare, shareConstant } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { emitter } from '@kit.BasicServicesKit';
 import { fileIo, fileUri } from '@kit.CoreFileKit';
@@ -106,6 +106,13 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
             call.argument('files') as Array<Any>
           ));
           return;
+        case 'saveAudio':
+          await this.handleSaveAudio(
+            call.argument('path') as string,
+            call.argument('fileName') as string,
+            result
+          );
+          return;
         case 'hapticFeedback':
           await this.handleHaptic(call.argument('level') as string);
           result.success('success');
@@ -114,6 +121,10 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
           await this.handleOpenLoginPage(
             call.argument('loginUrl') as string,
             call.argument('targetHost') as string,
+            call.argument('cookieUrls') as Array<string>,
+            call.argument('cookieKeys') as Array<string>,
+            call.argument('successCookieKeys') as Array<string>,
+            call.argument('userAgent') as string,
             result
           );
           return;
@@ -211,6 +222,10 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
   private async handleOpenLoginPage(
     loginUrl: string,
     targetHost: string,
+    cookieUrls: Array<string>,
+    cookieKeys: Array<string>,
+    successCookieKeys: Array<string>,
+    userAgent: string,
     result: MethodResult
   ): Promise<void> {
     // 监听 LoginWebPage 通过 emitter 发回的 Cookie
@@ -224,7 +239,11 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
       url: 'pages/LoginWebPage',
       params: {
         url: loginUrl,
-        targetHost: targetHost
+        targetHost: targetHost,
+        cookieUrls: cookieUrls,
+        cookieKeys: cookieKeys,
+        successCookieKeys: successCookieKeys,
+        userAgent: userAgent
       }
     });
   }
@@ -305,5 +324,53 @@ export default class NomarkPlatformPlugin implements FlutterPlugin {
     response.set('errors', errors);
     response.set('cancelled', false);
     return response;
+  }
+
+  /// 保存音频文件：复制到 filesDir 持久化 → 拉起系统分享面板
+  private async handleSaveAudio(
+    sourcePath: string,
+    fileName: string,
+    result: MethodResult
+  ): Promise<void> {
+    let source: fileIo.File | undefined;
+    let dest: fileIo.File | undefined;
+    try {
+      const context = this.requireContext();
+      const destPath = `${context.filesDir}/${fileName}`;
+      source = await fileIo.open(
+        fileUri.getUriFromPath(sourcePath),
+        fileIo.OpenMode.READ_ONLY
+      );
+      dest = await fileIo.open(
+        fileUri.getUriFromPath(destPath),
+        fileIo.OpenMode.WRITE_ONLY | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNCATE
+      );
+      await fileIo.copyFile(source.fd, dest.fd);
+      fileIo.closeSync(source);
+      source = undefined;
+      fileIo.closeSync(dest);
+      dest = undefined;
+
+      // 拉起系统分享面板，让用户选择保存到文件管理器或其他 app
+      const shareData: systemShare.SharedData = {
+        uri: fileUri.getUriFromPath(destPath),
+        type: shareConstant.ContentType.AUDIO
+      };
+      const controller = new systemShare.ShareController(shareData);
+      await controller.share({
+        previewMode: false,
+        selectionMode: shareConstant.SelectionMode.SINGLE
+      });
+      result.success(null);
+    } catch (error) {
+      result.error('SAVE_AUDIO_FAILED', `${error}`, null);
+    } finally {
+      if (source !== undefined) {
+        fileIo.closeSync(source);
+      }
+      if (dest !== undefined) {
+        fileIo.closeSync(dest);
+      }
+    }
   }
 }

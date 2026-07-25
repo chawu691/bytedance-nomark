@@ -6,8 +6,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../services/app_preferences.dart';
 import '../services/doubao_parser.dart';
@@ -297,7 +299,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
         options: Options(
           headers: {
             'user-agent': _pcUaHeader,
-            'referer': 'https://www.doubao.com/',
+            'referer': videoRefererFor(url),
           },
         ),
         onReceiveProgress: (received, total) {
@@ -317,6 +319,96 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
     } catch (e) {
       _set(url, status: DownloadStatus.error, error: '$e');
     }
+  }
+
+  /// 封面：复用图片下载流程，包装 coverUrl 为 ParsedImage 走相册
+  Future<void> downloadCover(ParsedVideo video) async {
+    final coverUrl = video.coverUrl;
+    if (coverUrl == null || coverUrl.isEmpty) return;
+    await download(ParsedImage(url: coverUrl));
+  }
+
+  /// 音乐：下载到临时文件 → 移动端分享 / 桌面端 saveAs / OHOS 平台通道
+  Future<void> downloadMusic(ParsedVideo video) async {
+    final musicUrl = video.musicUrl;
+    if (musicUrl == null || musicUrl.isEmpty) return;
+    if (state[musicUrl]?.status == DownloadStatus.downloading) return;
+    _set(musicUrl, status: DownloadStatus.downloading);
+    try {
+      final cacheDir = await getAppCacheDirectory();
+      // 文件名：优先用音乐标题，回退到 URL 段
+      final baseName =
+          (video.musicTitle != null && video.musicTitle!.isNotEmpty)
+              ? _sanitizeFileName(video.musicTitle!)
+              : _filename(musicUrl);
+      final filename = '$baseName.mp3';
+      final filePath = _join(cacheDir.path, filename);
+
+      await _dio.download(
+        musicUrl,
+        filePath,
+        options: Options(
+          headers: {
+            'user-agent': _pcUaHeader,
+            'referer': videoRefererFor(musicUrl),
+          },
+        ),
+        onReceiveProgress: (received, total) {
+          if (total <= 0) return;
+          _set(musicUrl, progress: received / total);
+        },
+      );
+
+      _set(musicUrl, status: DownloadStatus.saving, progress: 1);
+
+      if (isOhos) {
+        // OHOS：走平台通道保存到 filesDir + 系统分享
+        await saveOhosAudio(filePath: filePath, fileName: filename);
+      } else if (Platform.isWindows ||
+          Platform.isLinux ||
+          Platform.isMacOS) {
+        // 桌面端：弹 saveAs 对话框
+        final savePath = await FilePicker.platform.saveFile(
+          dialogTitle: '保存音乐',
+          fileName: filename,
+        );
+        if (savePath == null) {
+          // 用户取消，不视为错误
+          _set(musicUrl, status: DownloadStatus.idle);
+          try {
+            await File(filePath).delete();
+          } catch (_) {}
+          return;
+        }
+        await File(filePath).copy(savePath);
+      } else {
+        // iOS/Android：share sheet
+        final result = await Share.shareXFiles(
+          [XFile(filePath, name: filename, mimeType: 'audio/mpeg')],
+          text: video.musicTitle ?? '音乐',
+        );
+        if (result.status == ShareResultStatus.unavailable) {
+          _set(musicUrl, status: DownloadStatus.error, error: '分享面板不可用');
+          return;
+        }
+      }
+
+      _markDone(musicUrl);
+      // 清理临时文件
+      try {
+        await File(filePath).delete();
+      } catch (_) {}
+    } catch (e) {
+      _set(musicUrl, status: DownloadStatus.error, error: '$e');
+    }
+  }
+
+  /// 文件名净化：去掉非法字符，限长 64
+  String _sanitizeFileName(String name) {
+    final cleaned = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    return cleaned.isEmpty
+        ? 'music'
+        : (cleaned.length > 64 ? cleaned.substring(0, 64) : cleaned);
   }
 
   Future<bool> _ensureGalleryAccess() async {
@@ -347,7 +439,7 @@ class DownloadManager extends StateNotifier<Map<String, DownloadTask>> {
         mediaType: 'video',
         extension: video.videoType ?? 'mp4',
         cacheDir: cacheDir,
-        referer: 'https://www.doubao.com/',
+        referer: videoRefererFor(video.url),
       );
       if (file != null) downloaded.add(file);
     }
@@ -473,6 +565,25 @@ final downloadProvider =
 const _pcUaHeader =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
     'Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0';
+
+/// 根据视频 URL 域名返回来源页 referer。
+/// 抖音/TikTok CDN 严格校验 referer，错误来源会 403；
+/// 豆包 CDN 使用 doubao.com。图片 CDN 对 referer 不敏感故不调用本函数。
+String videoRefererFor(String url) {
+  final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+  if (host.contains('douyin') ||
+      host.contains('snssdk') ||
+      host.contains('douyinvod') ||
+      host.contains('bytevcloudcdn') ||
+      host.contains('bytecdntp') ||
+      host.contains('ixigua')) {
+    return 'https://www.douyin.com/';
+  }
+  if (host.contains('tiktok')) {
+    return 'https://www.tiktok.com/';
+  }
+  return 'https://www.doubao.com/';
+}
 
 // ───────────────────────── 设置 ─────────────────────────
 
@@ -619,7 +730,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     _prefs.setString(_kDouyinCookie, trimmed);
     final msToken = _extractCookieValue(trimmed, 'msToken');
     final ttwid = _extractCookieValue(trimmed, 'ttwid');
-    final sessionid = _extractCookieValue(trimmed, 'sessionid');
+    final primarySessionid = _extractCookieValue(trimmed, 'sessionid');
+    final sessionid = primarySessionid.isNotEmpty
+        ? primarySessionid
+        : _extractCookieValue(trimmed, 'sessionid_ss');
     final sVwebId = _extractCookieValue(trimmed, 's_v_web_id');
     _prefs.setString(_kDouyinMsToken, msToken);
     _prefs.setString(_kDouyinTtwid, ttwid);
@@ -665,7 +779,7 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   }
 
   String _extractCookieValue(String cookieStr, String key) {
-    final regex = RegExp('$key=([^;]+)');
+    final regex = RegExp('(?:^|;\\s*)${RegExp.escape(key)}=([^;]+)');
     final match = regex.firstMatch(cookieStr);
     return match?.group(1) ?? '';
   }

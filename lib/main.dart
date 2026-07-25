@@ -2151,7 +2151,7 @@ Future<void> _openVideoPreview(
     if (context.mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => _VideoPreviewPage(url: video.url),
+          builder: (_) => _VideoPreviewPage(video: video),
         ),
       );
     }
@@ -2164,16 +2164,16 @@ Future<void> _openVideoPreview(
   }
 }
 
-class _VideoPreviewPage extends StatefulWidget {
-  final String url;
+class _VideoPreviewPage extends ConsumerStatefulWidget {
+  final ParsedVideo video;
 
-  const _VideoPreviewPage({required this.url});
+  const _VideoPreviewPage({required this.video});
 
   @override
-  State<_VideoPreviewPage> createState() => _VideoPreviewPageState();
+  ConsumerState<_VideoPreviewPage> createState() => _VideoPreviewPageState();
 }
 
-class _VideoPreviewPageState extends State<_VideoPreviewPage> {
+class _VideoPreviewPageState extends ConsumerState<_VideoPreviewPage> {
   late final VideoPlayerController _controller;
   late final Future<void> _initialization;
   double _playbackSpeed = 1.0;
@@ -2182,11 +2182,11 @@ class _VideoPreviewPageState extends State<_VideoPreviewPage> {
   void initState() {
     super.initState();
     _controller = VideoPlayerController.networkUrl(
-      Uri.parse(widget.url),
-      httpHeaders: const {
+      Uri.parse(widget.video.url),
+      httpHeaders: {
         'user-agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'referer': 'https://www.doubao.com/',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+        'referer': videoRefererFor(widget.video.url),
       },
     );
     _initialization = _controller.initialize().then((_) {
@@ -2216,6 +2216,14 @@ class _VideoPreviewPageState extends State<_VideoPreviewPage> {
     return '$m:$s';
   }
 
+  void _downloadCover() {
+    ref.read(downloadProvider.notifier).downloadCover(widget.video);
+  }
+
+  void _downloadMusic() {
+    ref.read(downloadProvider.notifier).downloadMusic(widget.video);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2224,6 +2232,20 @@ class _VideoPreviewPageState extends State<_VideoPreviewPage> {
         title: const Text('视频播放'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        actions: [
+          if (widget.video.coverUrl != null)
+            IconButton(
+              icon: const Icon(Icons.image_outlined),
+              tooltip: '下载封面',
+              onPressed: _downloadCover,
+            ),
+          if (widget.video.musicUrl != null)
+            IconButton(
+              icon: const Icon(Icons.music_note_outlined),
+              tooltip: '下载音乐',
+              onPressed: _downloadMusic,
+            ),
+        ],
       ),
       body: Center(
         child: FutureBuilder<void>(
